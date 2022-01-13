@@ -14,15 +14,19 @@ import (
 )
 
 var (
-	lintFlag    = flag.Bool("lint", false, "check if all files are formatted properly and exit on violations")
+	lintFlag    = flag.Bool("lint", false, "check if all files are formatted properly")
 	inplaceFlag = flag.Bool("inplace", false, "format all files in place")
 )
 
 func main() {
 	flag.Parse()
 
-	ctx := context.Background()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run(ctx context.Context) error {
 	if *lintFlag && *inplaceFlag || !*lintFlag && !*inplaceFlag {
 		log.Fatalf("[ERROR] must set either 'lint' or 'inplace'")
 	}
@@ -35,14 +39,15 @@ func main() {
 	}
 	defer cleanup.run()
 
+	log.Println("[INFO] looking at files")
 	for _, path := range flag.Args() {
 		log.Println("[INFO] looking at", path)
 		if err = handleFile(ctx, path, tf); err != nil {
-			log.Println("[ERROR]: ", path, ":", err)
+			return fmt.Errorf("unable to handle file at path: %s: %w", path, err)
 		}
 	}
-
 	log.Println("[INFO] looked at all files")
+	return nil
 }
 
 func handleFile(ctx context.Context, path string, tf *tfexec.Terraform) error {
