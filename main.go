@@ -10,14 +10,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/hashicorp/hc-install/product"
-	"github.com/hashicorp/hc-install/releases"
 	"github.com/hashicorp/terraform-exec/tfexec"
 )
-
-func init() {
-	flag.Parse()
-}
 
 var (
 	lintFlag    = flag.Bool("lint", false, "check if all files are formatted properly and exit on violations")
@@ -25,6 +19,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	ctx := context.Background()
 
 	if *lintFlag && *inplaceFlag || !*lintFlag && !*inplaceFlag {
@@ -33,40 +29,20 @@ func main() {
 
 	log.Println("[INFO] installing terraform")
 
-	installer := &releases.LatestVersion{
-		Product: product.Terraform,
-	}
-
-	execPath, err := installer.Install(ctx)
+	tf, cleanup, err := setupTerraform(ctx)
 	if err != nil {
-		log.Fatalf("[ERROR] unable to intsall terraform: %s", err)
+		log.Fatalf("[ERROR] unable to setup terraform: %s", err)
 	}
+	defer cleanup.run()
 
-	tmpdir := os.TempDir()
-	defer func() { _ = os.RemoveAll(tmpdir) }()
-
-	tf, err := tfexec.NewTerraform(tmpdir, execPath)
-	if err != nil {
-		log.Fatalf("[ERROR] unable to create terraform handle: %s", err)
-	}
-	log.Println("[INFO] installed terraform, looking at files")
-
-	success := true
 	for _, path := range flag.Args() {
 		log.Println("[INFO] looking at", path)
 		if err = handleFile(ctx, path, tf); err != nil {
-			success = false
 			log.Println("[ERROR]: ", path, ":", err)
 		}
 	}
 
 	log.Println("[INFO] looked at all files")
-
-	if success {
-		os.Exit(0)
-	} else {
-		os.Exit(1)
-	}
 }
 
 func handleFile(ctx context.Context, path string, tf *tfexec.Terraform) error {
