@@ -22,20 +22,20 @@ func main() {
 	flag.Parse()
 
 	if err := run(context.Background()); err != nil {
-		log.Fatal(err)
+		log.Fatal("[ERROR]: ", err)
 	}
 }
 
 func run(ctx context.Context) error {
 	if *lintFlag && *inplaceFlag || !*lintFlag && !*inplaceFlag {
-		log.Fatalf("[ERROR] must set either 'lint' or 'inplace'")
+		return fmt.Errorf("must set either 'lint' or 'inplace'")
 	}
 
 	log.Println("[INFO] installing terraform")
 
 	tf, cleanup, err := setupTerraform(ctx)
 	if err != nil {
-		log.Fatalf("[ERROR] unable to setup terraform: %s", err)
+		return fmt.Errorf("unable to setup terraform: %s", err)
 	}
 	defer cleanup.run()
 
