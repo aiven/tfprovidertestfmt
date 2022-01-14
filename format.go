@@ -12,19 +12,16 @@ import (
 	"unicode"
 
 	"github.com/hashicorp/hcl/v2/hclparse"
-	"github.com/hashicorp/terraform-exec/tfexec"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
-func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, tf *tfexec.Terraform, content []byte) ([]byte, error) {
+func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, content []byte) ([]byte, error) {
 	parsed, err := parser.ParseFile(fset, "src.go", bytes.NewReader(content), parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse content: %w", err)
 	}
 
-	var (
-		lastfmtErr error
-		stack      []ast.Node
-	)
+	var stack []ast.Node
 	ast.Inspect(parsed, func(n ast.Node) bool {
 		defer func() {
 			if n == nil {
@@ -53,22 +50,16 @@ func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, 
 
 		if !isTerraformManifest(val) {
 			return true
+		} else {
+			val = formatTerraformManifest(val)
 		}
 
 		indentation := getExpectedIndentation(stack, fset)
 
-		if val, err := tf.FormatString(ctx, val); err != nil {
-			lastfmtErr = err
-		} else {
-			lit.Value = "`" + strings.TrimRightFunc(strings.ReplaceAll(val, "\n", "\n"+strings.Repeat("\t", indentation)), unicode.IsSpace) + "`"
-		}
+		lit.Value = "`" + strings.TrimRightFunc(strings.ReplaceAll(val, "\n", "\n"+strings.Repeat("\t", indentation)), unicode.IsSpace) + "`"
 		return true
 
 	})
-
-	if lastfmtErr != nil {
-		return nil, fmt.Errorf("unable to format file: %w", lastfmtErr)
-	}
 
 	buf := new(bytes.Buffer)
 
@@ -81,6 +72,10 @@ func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, 
 func isTerraformManifest(s string) bool {
 	_, diag := hclparse.NewParser().ParseHCL([]byte(s), "cand.tf")
 	return !diag.HasErrors()
+}
+
+func formatTerraformManifest(s string) string {
+	return string(hclwrite.Format([]byte(s)))
 }
 
 func getExpectedIndentation(stack []ast.Node, fset *token.FileSet) int {

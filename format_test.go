@@ -31,18 +31,12 @@ resource "foo" {
 
 	var ctx = context.Background()
 
-	tf, cleanup, err := setupTerraform(ctx)
-	if err != nil {
-		t.Fatal("unable to setup terraform:", err)
-	}
-	defer cleanup.run()
-
 	fs := token.NewFileSet()
 
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := formatEmbeddedTerraformManifests(ctx, fs, tf, tt.content)
+			got, err := formatEmbeddedTerraformManifests(ctx, fs, tt.content)
 			if err != nil {
 				t.Fatal("unexpected error formatting file:", err)
 			}

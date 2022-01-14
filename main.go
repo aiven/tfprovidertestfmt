@@ -9,13 +9,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-
-	"github.com/hashicorp/terraform-exec/tfexec"
 )
 
 var (
-	lintFlag    = flag.Bool("lint", false, "check if all files are formatted properly")
-	inplaceFlag = flag.Bool("inplace", false, "format all files in place")
+	lintFlag        = flag.Bool("lint", false, "check if all files are formatted properly")
+	inplaceFlag     = flag.Bool("inplace", false, "format all files in place")
+	indentationFlag = flag.Bool("indent", false, "indent the embedded manifests to the appropriate level")
 )
 
 func main() {
@@ -31,18 +30,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("must set either 'lint' or 'inplace'")
 	}
 
-	log.Println("[INFO] installing terraform")
-
-	tf, cleanup, err := setupTerraform(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to setup terraform: %s", err)
-	}
-	defer cleanup.run()
-
 	log.Println("[INFO] looking at files")
 	for _, path := range flag.Args() {
 		log.Println("[INFO] looking at", path)
-		if err = handleFile(ctx, path, tf); err != nil {
+		if err := handleFile(ctx, path); err != nil {
 			return fmt.Errorf("unable to handle file at path: %s: %w", path, err)
 		}
 	}
@@ -50,7 +41,7 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func handleFile(ctx context.Context, path string, tf *tfexec.Terraform) error {
+func handleFile(ctx context.Context, path string) error {
 	file, err := os.OpenFile(path, os.O_RDWR, 0755)
 	if err != nil {
 		return fmt.Errorf("unable to open file at path '%s': %w", path, err)
@@ -64,7 +55,7 @@ func handleFile(ctx context.Context, path string, tf *tfexec.Terraform) error {
 		return fmt.Errorf("unable to read file at path '%s': %w", path, err)
 	}
 
-	newContent, err := formatEmbeddedTerraformManifests(ctx, fset, tf, oldContent)
+	newContent, err := formatEmbeddedTerraformManifests(ctx, fset, oldContent)
 	if err != nil {
 		return fmt.Errorf("unable to format file at path '%s': %w", path, err)
 	}
