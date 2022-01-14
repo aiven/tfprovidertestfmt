@@ -1,14 +1,19 @@
-Tfprovidertestfmt
+TFProviderTestFmt
 =================
-
-Overview
-========
 
 Features
 ============
 
-Setup
+Formats embedded HCL configurations, for example acceptance test manifests in terraform provider implementations. For an example PR please see: https://github.com/aiven/terraform-provider-aiven/pull/649/files
+
+Limitations
 ============
+
+Implementation Details:
+* Traverses the AST of the go program and looks for literal nodes that are raw strings
+* On encounters with valid HCL it formats the string properly and replaces the AST node
+
+There is no guarantee that all diffs are valid with that method, if for example a manifest is put together from multiple strings or some other string gets parsed as valid HCL. In practice though thats unlikely enough to get some value out of this tool. It is recommended to inspect the diff before accepting it though. Eventually we will make it possible to add `ignore` comments to strings for better control on what to format. 
 
 License
 ============
