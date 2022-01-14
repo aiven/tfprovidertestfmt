@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -15,7 +14,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
-func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, content []byte) ([]byte, error) {
+func formatEmbeddedTerraformManifests(fset *token.FileSet, content []byte) ([]byte, error) {
 	parsed, err := parser.ParseFile(fset, "src.go", bytes.NewReader(content), parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse content: %w", err)
@@ -53,7 +52,6 @@ func formatEmbeddedTerraformManifests(ctx context.Context, fset *token.FileSet, 
 		} else {
 			val = formatTerraformManifest(val)
 		}
-
 		indentation := getExpectedIndentation(stack, fset)
 
 		lit.Value = "`" + strings.TrimRightFunc(strings.ReplaceAll(val, "\n", "\n"+strings.Repeat("\t", indentation)), unicode.IsSpace) + "`"
@@ -85,6 +83,12 @@ func getExpectedIndentation(stack []ast.Node, fset *token.FileSet) int {
 	if ass := lastAssignmentStatement(stack); ass != nil {
 		return fset.Position(ass.Pos()).Column
 	}
+	if ass := lastDeclarationStatement(stack); ass != nil {
+		return fset.Position(ass.Pos()).Column
+	}
+	if ass := lastValueSpec(stack); ass != nil {
+		return fset.Position(ass.Pos()).Column - 4
+	}
 	return 0
 }
 
@@ -104,6 +108,30 @@ func lastAssignmentStatement(stack []ast.Node) ast.Node {
 	for i := len(stack) - 1; i != 0; i-- {
 		switch stack[i].(type) {
 		case *ast.AssignStmt:
+			return stack[i]
+		default:
+			continue
+		}
+	}
+	return nil
+}
+
+func lastDeclarationStatement(stack []ast.Node) ast.Node {
+	for i := len(stack) - 1; i != 0; i-- {
+		switch stack[i].(type) {
+		case *ast.DeclStmt:
+			return stack[i]
+		default:
+			continue
+		}
+	}
+	return nil
+}
+
+func lastValueSpec(stack []ast.Node) ast.Node {
+	for i := len(stack) - 1; i != 0; i-- {
+		switch stack[i].(type) {
+		case *ast.ValueSpec:
 			return stack[i]
 		default:
 			continue
